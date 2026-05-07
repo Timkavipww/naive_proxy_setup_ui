@@ -1,20 +1,31 @@
-from pathlib import Path
 import re
 import secrets
 import string
 import subprocess
+from pathlib import Path
+
+from config import config
 
 USERS_DIR = Path("/etc/caddy/users")
 CADDY_CONFIG = "/etc/caddy/Caddyfile"
 
 
+def enrich_user(user: dict) -> dict:
+    login = user["login"]
+    password = user["password"]
+
+    return {
+        **user,
+        "file": f"{login}.conf",
+        "link": (f"naive+https://{login}:{password}@{config.DOMAIN}:443"),
+        "desktop": (f"https://{login}:{password}@{config.DOMAIN}"),
+    }
+
+
 def gen_token(length: int) -> str:
     alphabet = string.ascii_letters + string.digits
 
-    return "".join(
-        secrets.choice(alphabet)
-        for _ in range(length)
-    )
+    return "".join(secrets.choice(alphabet) for _ in range(length))
 
 
 def user_file(login: str) -> Path:
@@ -29,10 +40,7 @@ def add_user_to_file(login: str, password: str):
 
     file = user_file(login)
 
-    content = (
-        f"# user: {login}\n"
-        f"basic_auth {login} {password}\n"
-    )
+    content = f"# user: {login}\nbasic_auth {login} {password}\n"
 
     file.write_text(content)
 

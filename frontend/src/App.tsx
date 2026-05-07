@@ -6,10 +6,15 @@ const API = "/api";
 type User = {
   id: string;
   login: string;
-  password: string;
-  file: string;
-  link: string;
-  desktop: string;
+  password?: string;
+  file?: string;
+  link?: string;
+  desktop?: string;
+};
+
+type UsersResponse = {
+  count: number;
+  users: User[];
 };
 
 const headers = () => ({
@@ -17,12 +22,19 @@ const headers = () => ({
   "x-admin-password": localStorage.getItem("admin_password") || "",
 });
 
-function maskLink(value: string, visible: boolean) {
-  return visible ? value : value.replace(/:([^:@]+)@/, ":***@");
+function safeString(v: unknown): string {
+  return typeof v === "string" ? v : "";
 }
 
-function maskPassword(value: string, visible: boolean) {
-  return visible ? value : "••••••••";
+function maskLink(value: unknown, visible: boolean) {
+  const v = safeString(value);
+  if (visible) return v;
+  return v.replace(/:([^:@]+)@/, ":***@");
+}
+
+function maskPassword(value: unknown, visible: boolean) {
+  const v = safeString(value);
+  return visible ? v : "••••••••";
 }
 
 function UserRow({
@@ -52,13 +64,13 @@ function UserRow({
         <div className="linkItem">
           <div className="labelSmall">Naive</div>
           <div className="mono linkText">{maskLink(user.link, show)}</div>
-          <button onClick={() => onCopy(user.link)}>copy</button>
+          <button onClick={() => onCopy(user.link ?? "")}>copy</button>
         </div>
 
         <div className="linkItem">
           <div className="labelSmall">Desktop</div>
           <div className="mono linkText">{maskLink(user.desktop, show)}</div>
-          <button onClick={() => onCopy(user.desktop)}>copy</button>
+          <button onClick={() => onCopy(user.desktop ?? "")}>copy</button>
         </div>
       </div>
 
@@ -101,8 +113,18 @@ export default function App() {
         return;
       }
 
-      const data = await res.json();
-      setUsers(data.users ?? []);
+      const data: UsersResponse = await res.json();
+
+      setUsers(
+        (data.users ?? []).map((u) => ({
+          id: u.id ?? "",
+          login: u.login ?? "",
+          password: u.password ?? "",
+          file: u.file ?? "",
+          link: u.link ?? "",
+          desktop: u.desktop ?? "",
+        })),
+      );
     } finally {
       setLoading(false);
     }

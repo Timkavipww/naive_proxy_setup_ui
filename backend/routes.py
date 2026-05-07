@@ -1,15 +1,13 @@
 from config import config
-
 from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
 )
-
 from security import check_auth
-
 from utils import (
     add_user_to_file,
+    enrich_user,
     gen_token,
     parse_users,
     reload_caddy,
@@ -58,50 +56,36 @@ def create_user(
             "login": login,
             "password": password,
             "file": f"{login}.conf",
-            "link": (
-                f"naive+https://"
-                f"{login}:{password}"
-                f"@{config.DOMAIN}:443"
-            ),
-            "desktop": (
-                f"https://"
-                f"{login}:{password}"
-                f"@{config.DOMAIN}"
-            ),
+            "link": (f"naive+https://{login}:{password}@{config.DOMAIN}:443"),
+            "desktop": (f"https://{login}:{password}@{config.DOMAIN}"),
         },
     }
 
 
 @router.get("/users")
-def get_users(
-    _: str = Depends(check_auth),
-):
+def get_users(_: str = Depends(check_auth)):
     users = parse_users()
 
+    enriched = [enrich_user(u) for u in users]
+
     return {
-        "count": len(users),
-        "users": users,
+        "count": len(enriched),
+        "users": enriched,
     }
 
 
 @router.get("/users/{user_id}")
-def get_user(
-    user_id: str,
-    _: str = Depends(check_auth),
-):
+def get_user(user_id: str, _: str = Depends(check_auth)):
     users = parse_users()
 
     for user in users:
         if user["id"] == user_id:
             return {
                 "status": "ok",
-                "data": user,
+                "data": enrich_user(user),
             }
 
-    raise HTTPException(
-        status_code=404,
-        detail="User not found",
-    )
+    raise HTTPException(status_code=404, detail="User not found")
 
 
 @router.delete("/users/{user_id}")
@@ -111,10 +95,7 @@ def delete_user(
 ):
     users = parse_users()
 
-    exists = any(
-        user["id"] == user_id
-        for user in users
-    )
+    exists = any(user["id"] == user_id for user in users)
 
     if not exists:
         raise HTTPException(
