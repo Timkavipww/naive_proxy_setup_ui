@@ -2,6 +2,9 @@
 set -Eeuo pipefail
 
 STATE_FILE="/root/naiveproxy.env"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+cd "$PROJECT_ROOT"
 
 log()  { printf '[+] %s\n' "$*"; }
 warn() { printf '[!] %s\n' "$*" >&2; }
@@ -317,6 +320,7 @@ build_frontend() {
 
   pushd "$FRONTEND_DIR" >/dev/null
 
+  command -v node >/dev/null 2>&1 || die "node не установлен"
   command -v npm >/dev/null 2>&1 || die "npm не установлен"
 
   npm install
@@ -340,7 +344,7 @@ start_backend() {
   log "Запуск backend (uvicorn)..."
 
   local BACKEND_DIR="./backend"
-  local REQ_FILE="$BACKEND_DIR/req.txt"
+  local REQ_FILE="$BACKEND_DIR/requirements.txt"
 
   [[ -d "$BACKEND_DIR" ]] || die "backend directory not found"
 
@@ -355,11 +359,11 @@ start_backend() {
   apt-get install -y python3 python3-pip
 
   # установка зависимостей через requirements
-  if [[ -f "req.txt" ]]; then
+  if [[ -f "requirements.txt" ]]; then
     log "Установка зависимостей из requirements.txt..."
     python3 -m pip install -r requirements.txt
   else
-    die "req.txt не найден в backend"
+    die "requirements.txt не найден в backend"
   fi
 
   nohup python3 -m uvicorn app:app --host 0.0.0.0 --port 8000 \
