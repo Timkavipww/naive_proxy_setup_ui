@@ -303,6 +303,73 @@ create_env_file() {
   log ".env created"
 }
 
+build_frontend() {
+  [[ -z "${UI_DOMAIN:-}" ]] && {
+    log "UI_DOMAIN не задан — пропуск сборки frontend"
+    return 0
+  }
+
+  local FRONTEND_DIR="./frontend"
+
+  [[ -d "$FRONTEND_DIR" ]] || die "frontend directory not found"
+
+  log "Сборка frontend..."
+
+  pushd "$FRONTEND_DIR" >/dev/null
+
+  command -v npm >/dev/null 2>&1 || die "npm не установлен"
+
+  npm install
+  npm run build
+
+  popd >/dev/null
+
+  log "Копирование frontend в /var/www/react..."
+
+  rm -rf /var/www/react/*
+  mkdir -p /var/www/react
+
+  cp -r "$FRONTEND_DIR/dist/"* /var/www/react/
+
+  chmod -R 755 /var/www/react
+
+  log "Frontend установлен"
+}
+
+start_backend() {
+  log "Запуск backend (uvicorn)..."
+
+  local BACKEND_DIR="./backend"
+  local REQ_FILE="$BACKEND_DIR/req.txt"
+
+  [[ -d "$BACKEND_DIR" ]] || die "backend directory not found"
+
+  # убиваем старый процесс
+  pkill -f "uvicorn app:app" || true
+
+  command -v python3 >/dev/null 2>&1 || die "python3 не установлен"
+  command -v pip3 >/dev/null 2>&1 || die "pip3 не установлен"
+
+  pushd "$BACKEND_DIR" >/dev/null
+
+  apt-get install -y python3 python3-pip
+
+  # установка зависимостей через requirements
+  if [[ -f "req.txt" ]]; then
+    log "Установка зависимостей из requirements.txt..."
+    python3 -m pip install -r requirements.txt
+  else
+    die "req.txt не найден в backend"
+  fi
+
+  nohup python3 -m uvicorn app:app --host 0.0.0.0 --port 8000 \
+    > api.log 2>&1 &
+
+  popd >/dev/null
+
+  log "Backend запущен"
+}
+
 create_systemd_unit() {
   backup_if_exists /etc/systemd/system/caddy.service
 
@@ -389,6 +456,10 @@ main() {
 
   create_env_file
   create_caddyfile
+
+  build_frontend
+
+  start_backend
 
   create_systemd_unit
   start_service
