@@ -290,10 +290,10 @@ EOF
 }
 
 create_env_file() {
-  local template="./backend/.env.example"
-  local target="./backend/.env"
+  local template="$PROJECT_ROOT/backend/.env.example"
+  local target="$PROJECT_ROOT/backend/.env"
 
-  [[ -f "$template" ]] || die ".env.example not found"
+  [[ -f "$template" ]] || die ".env.example not found at $template"
 
   cp "$template" "$target"
 
