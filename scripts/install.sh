@@ -204,11 +204,14 @@ create_web_root() {
   mkdir -p /var/www/html /etc/caddy
 
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  PARENT_DIR="$(dirname "$SCRIPT_DIR")"
 
-  if [[ -f "$SCRIPT_DIR/index.html" ]]; then
-    cp "$SCRIPT_DIR/index.html" /var/www/html/index.html
+  if [[ -f "$PARENT_DIR/index.html" ]]; then
+    cp "$PARENT_DIR/index.html" /var/www/html/index.html
+    log "index.html взят из $PARENT_DIR"
   else
     echo "Loading..." > /var/www/html/index.html
+    warn "index.html не найден в $PARENT_DIR"
   fi
 
   chmod 644 /var/www/html/index.html
@@ -283,7 +286,7 @@ create_users_file() {
   mkdir -p "$USERS_DIR"
   chmod 755 "$USERS_DIR"
 
-  LOGIN="u1_$(gen_token 6)"
+  LOGIN="1_user_$(gen_token 6)"
   PASSWORD="$(gen_token 24)"
 
   echo -e "# user: $LOGIN\nbasic_auth $LOGIN $PASSWORD" \
