@@ -70,16 +70,6 @@ handle_inputs() {
 
   read -r -p "UI домен (Enter = без панели): " UI_DOMAIN
 
-  UI_EMAIL=""
-
-  if [[ -n "${UI_DOMAIN:-}" ]]; then
-    while true; do
-      read -r -p "Email для UI TLS: " UI_EMAIL
-      [[ "$UI_EMAIL" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]] && break
-      warn "Неверный email"
-    done
-  fi
-
   ADMIN_PASSWORD=""
 
   if [[ -n "${UI_DOMAIN:-}" ]]; then
@@ -90,7 +80,7 @@ handle_inputs() {
     done
   fi
 
-  export DOMAIN EMAIL UI_DOMAIN UI_EMAIL ADMIN_PASSWORD
+  export DOMAIN EMAIL UI_DOMAIN ADMIN_PASSWORD
 }
 
 save_state() {
@@ -256,7 +246,7 @@ EOF
 
 ${UI_DOMAIN} {
 
-    tls ${UI_EMAIL}
+    tls ${EMAIL}
 
     handle_path /api/* {
         reverse_proxy 127.0.0.1:8000
