@@ -229,15 +229,14 @@ build_caddy() {
 create_web_root() {
   mkdir -p /var/www/html /etc/caddy
 
-  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  PARENT_DIR="$(dirname "$SCRIPT_DIR")"
+  local index_file="${PROJECT_ROOT}/index.html"
 
-  if [[ -f "$PARENT_DIR/index.html" ]]; then
-    cp "$PARENT_DIR/index.html" /var/www/html/index.html
-    log "index.html взят из $PARENT_DIR"
+  if [[ -f "$index_file" ]]; then
+    cp "$index_file" /var/www/html/index.html
+    log "index.html взят из $index_file"
   else
     echo "Loading..." > /var/www/html/index.html
-    warn "index.html не найден в $PARENT_DIR"
+    warn "index.html не найден: $index_file"
   fi
 
   chmod 644 /var/www/html/index.html
