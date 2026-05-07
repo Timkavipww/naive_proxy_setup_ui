@@ -48,9 +48,10 @@ check_ports_free() {
 }
 
 handle_inputs() {
+
   if [[ -z "${DOMAIN:-}" ]]; then
     while true; do
-      read -r -p "Домен: " DOMAIN
+      read -r -p "Proxy домен: " DOMAIN
       [[ "$DOMAIN" =~ ^([A-Za-z0-9-]+\.)+[A-Za-z]{2,}$ ]] && break
       warn "Неверный домен"
     done
@@ -58,13 +59,35 @@ handle_inputs() {
 
   if [[ -z "${EMAIL:-}" ]]; then
     while true; do
-      read -r -p "Email: " EMAIL
+      read -r -p "Email для Proxy TLS: " EMAIL
       [[ "$EMAIL" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]] && break
       warn "Неверный email"
     done
   fi
 
-  export DOMAIN EMAIL
+  read -r -p "UI домен (Enter = без панели): " UI_DOMAIN
+
+  UI_EMAIL=""
+
+  if [[ -n "${UI_DOMAIN:-}" ]]; then
+    while true; do
+      read -r -p "Email для UI TLS: " UI_EMAIL
+      [[ "$UI_EMAIL" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]] && break
+      warn "Неверный email"
+    done
+  fi
+
+  ADMIN_PASSWORD=""
+
+  if [[ -n "${UI_DOMAIN:-}" ]]; then
+    while true; do
+      read -r -p "Admin password: " ADMIN_PASSWORD
+      [[ -n "$ADMIN_PASSWORD" ]] && break
+      warn "Пароль не может быть пустым"
+    done
+  fi
+
+  export DOMAIN EMAIL UI_DOMAIN UI_EMAIL ADMIN_PASSWORD
 }
 
 save_state() {
@@ -224,8 +247,29 @@ create_caddyfile() {
 {
   order forward_proxy before file_server
 }
+EOF
+
+  if [[ -n "${UI_DOMAIN:-}" ]]; then
+    cat >> /etc/caddy/Caddyfile <<EOF
+
+${UI_DOMAIN} {
+
+    tls ${UI_EMAIL}
+
+    handle_path /api/* {
+        reverse_proxy 127.0.0.1:8000
+    }
+
+    root * /var/www/react
+    file_server
+}
+EOF
+  fi
+
+  cat >> /etc/caddy/Caddyfile <<EOF
 
 :443, ${DOMAIN} {
+
   tls ${EMAIL}
 
   forward_proxy {
@@ -240,8 +284,23 @@ create_caddyfile() {
   }
 }
 EOF
+
   chmod 644 /etc/caddy/Caddyfile
   caddy fmt --overwrite /etc/caddy/Caddyfile
+}
+
+create_env_file() {
+  local template="./backend/.env.example"
+  local target="./backend/.env"
+
+  [[ -f "$template" ]] || die ".env.example not found"
+
+  cp "$template" "$target"
+
+  sed -i "s|DOMAIN=.*|DOMAIN=${DOMAIN}|g" "$target"
+  sed -i "s|ADMIN_PASSWORD=.*|ADMIN_PASSWORD=${ADMIN_PASSWORD}|g" "$target"
+
+  log ".env created"
 }
 
 create_systemd_unit() {
@@ -315,7 +374,7 @@ main() {
   check_system
   check_ports_free
 
-  load_state          # ← ВАЖНО
+  load_state
   handle_inputs
 
   install_packages
@@ -327,18 +386,23 @@ main() {
 
   create_web_root
   create_users_file
-  create_caddyfile
-  create_systemd_unit
 
+  create_env_file
+  create_caddyfile
+
+  create_systemd_unit
   start_service
 
   echo
   log "Готово"
-  echo "Link:"
-  echo "naive+https://${LOGIN:-${LOGIN_STATE}}:${PASSWORD:-${PASSWORD_STATE}}@${DOMAIN}:443"
-  echo
-  echo "For Desktop"
-  echo "https://${LOGIN:-${LOGIN_STATE}}:${PASSWORD:-${PASSWORD_STATE}}@${DOMAIN}"
+
+  echo "Proxy:"
+  echo "naive+https://${LOGIN}:${PASSWORD}@${DOMAIN}:443"
+
+  if [[ -n "${UI_DOMAIN:-}" ]]; then
+    echo "UI:"
+    echo "https://${UI_DOMAIN}"
+  fi
 }
 
 main "$@"

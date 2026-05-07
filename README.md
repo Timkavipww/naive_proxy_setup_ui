@@ -132,3 +132,11 @@ chmod +x uninstall.sh
 * Секреты (логин/пароль) сохраняются в `/root/naiveproxy.env`
 * Caddy собирается через `xcaddy`
 * Конфиги автоматически бэкапятся перед изменениями
+
+
+```bash
+npm run build
+rm -rf /var/www/react/*
+cp -r dist/* /var/www/react/
+systemctl restart caddy
+```
