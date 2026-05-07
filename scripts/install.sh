@@ -226,7 +226,7 @@ create_caddyfile() {
   tls ${EMAIL}
 
   forward_proxy {
-    import /etc/caddy/users.conf
+    import /etc/caddy/users/*
     hide_ip
     hide_via
     probe_resistance
@@ -278,14 +278,18 @@ gen_token() {
 }
 
 create_users_file() {
-  USERS_FILE="/etc/caddy/users.conf"
-  : > "$USERS_FILE"
-  chmod 600 "$USERS_FILE"
+  USERS_DIR="/etc/caddy/users"
+
+  mkdir -p "$USERS_DIR"
+  chmod 755 "$USERS_DIR"
 
   LOGIN="u1_$(gen_token 6)"
   PASSWORD="$(gen_token 24)"
 
-  echo "basic_auth $LOGIN $PASSWORD" >> "$USERS_FILE"
+  echo -e "# user: $LOGIN\nbasic_auth $LOGIN $PASSWORD" \
+    > "${USERS_DIR}/${LOGIN}.conf"
+
+  chmod 600 "${USERS_DIR}/${LOGIN}.conf"
 
   export LOGIN PASSWORD
 

@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-USERS_FILE="/etc/caddy/users.conf"
+USERS_DIR="/etc/caddy/users"
 CADDY_CONFIG="/etc/caddy/Caddyfile"
-STATE_FILE="/root/naiveproxy.env"
 
 log()  { printf '\n\e[32m[+]\e[0m %s\n' "$*"; }
 warn() { printf '\n\e[33m[!]\e[0m %s\n' "$*" >&2; }
@@ -17,39 +16,32 @@ gen_hex() {
   openssl rand -hex "$1"
 }
 
-load_state() {
-  [[ -f "$STATE_FILE" ]] || return 0
-  # shellcheck disable=SC1090
-  source "$STATE_FILE"
-}
-
 reload_caddy() {
-  if command -v caddy >/dev/null 2>&1; then
-    caddy reload --config "$CADDY_CONFIG" >/dev/null 2>&1 || warn "Caddy reload failed"
-  else
-    warn "Caddy not found"
-  fi
+  command -v caddy >/dev/null 2>&1 || { warn "Caddy not found"; return 0; }
+  caddy reload --config "$CADDY_CONFIG" >/dev/null 2>&1 || warn "Caddy reload failed"
 }
 
 add_user() {
   local prefix="${1:-}"
   [[ -z "$prefix" ]] && die "Usage: $0 <prefix>"
 
-  mkdir -p "$(dirname "$USERS_FILE")"
-  touch "$USERS_FILE"
-  chmod 600 "$USERS_FILE"
+  mkdir -p "$USERS_DIR"
+  chmod 755 "$USERS_DIR"
 
-  local suffix login password
+  local suffix login password file
 
   suffix="$(gen_hex 3)"
   login="${prefix}_${suffix}"
   password="$(gen_hex 8)"
 
-  {
-    echo ""
-    echo "# user: $login"
-    echo "basic_auth $login $password"
-  } >> "$USERS_FILE"
+  file="${USERS_DIR}/${login}.conf"
+
+  cat > "$file" <<EOF
+# user: $login
+basic_auth $login $password
+EOF
+
+  chmod 600 "$file"
 
   export LOGIN="$login"
   export PASSWORD="$password"
@@ -60,8 +52,6 @@ add_user() {
 }
 
 print_result() {
-  load_state
-
   local domain="${DOMAIN:-your-domain.com}"
 
   echo
@@ -96,9 +86,5 @@ print_result() {
   echo
 }
 
-main() {
-  require_root
-  add_user "${1:-}"
-}
-
-main "$@"
+require_root
+add_user "${1:-}"
