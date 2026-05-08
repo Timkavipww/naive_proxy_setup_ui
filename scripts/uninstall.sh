@@ -79,12 +79,59 @@ remove_firewall() {
   log "Firewall очищен"
 }
 
+stop_backend() {
+  log "Остановка backend (uvicorn)..."
+
+  pkill -f "uvicorn app:app" 2>/dev/null || true
+
+  # если вдруг был systemd/pm2 в будущем
+  pkill -f "python3 -m uvicorn" 2>/dev/null || true
+
+  log "Backend остановлен"
+}
+
+remove_backend() {
+  if [[ -d "$PROJECT_ROOT/backend" ]]; then
+    confirm "Удалить backend папку?" && rm -rf "$PROJECT_ROOT/backend"
+    log "Backend удалён"
+  fi
+}
+
+remove_frontend() {
+  if [[ -d "$PROJECT_ROOT/frontend" ]]; then
+    confirm "Удалить frontend папку?" && rm -rf "$PROJECT_ROOT/frontend"
+    log "Frontend исходники удалены"
+  fi
+}
+
+remove_react_build() {
+  if [[ -d /var/www/react ]]; then
+    if confirm "Удалить собранный frontend (/var/www/react) ?"; then
+      rm -rf /var/www/react
+      log "/var/www/react удалён"
+    fi
+  fi
+}
+clean_node_modules() {
+  if [[ -d "$PROJECT_ROOT/frontend/node_modules" ]]; then
+    confirm "Удалить node_modules?" && rm -rf "$PROJECT_ROOT/frontend/node_modules"
+    log "node_modules удалены"
+  fi
+}
+
 full_cleanup() {
+  stop_backend
+
   remove_service
   remove_caddy_binary
   remove_xcaddy
   remove_go
   remove_caddy_config
+
+  remove_backend
+  remove_frontend
+  remove_react_build
+
   remove_users_and_state
   remove_web_root
   remove_firewall
@@ -101,6 +148,10 @@ menu() {
   echo "6) Удалить web root"
   echo "7) Удалить firewall rules"
   echo "8) ПОЛНЫЙ ДЕИНСТАЛЛ"
+  echo "9) Остановить backend"
+  echo "10) Удалить backend"
+  echo "11) Удалить frontend"
+  echo "12) Удалить /var/www/react"
   echo "0) Выход"
   echo
 }
@@ -121,6 +172,10 @@ main() {
       6) remove_web_root ;;
       7) remove_firewall ;;
       8) confirm "Точно удалить ВСЁ?" && full_cleanup ;;
+      9) stop_backend ;;
+      10) remove_backend ;;
+      11) remove_frontend ;;
+      12) remove_react_build ;;
       0) exit 0 ;;
       *) warn "Неверный выбор" ;;
     esac
