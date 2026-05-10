@@ -295,6 +295,20 @@ create_env_file() {
   log ".env created"
 }
 
+install_python() {
+  [[ -z "${UI_DOMAIN:-}" && -z "${UI_MAIN:-}" ]] && {
+    log "UI не используется — пропуск установки Python"
+    return 0
+  }
+
+  log "Установка Python зависимостей..."
+
+  apt-get install -y \
+    python3 \
+    python3-pip \
+    python3-venv
+}
+
 install_node() {
   [[ -z "${UI_DOMAIN:-}" ]] && {
     log "UI_DOMAIN не задан — пропуск установки Node.js"
@@ -362,33 +376,50 @@ build_frontend() {
 }
 
 start_backend() {
+  [[ -z "${UI_DOMAIN:-}" ]] && {
+    log "UI_DOMAIN не задан — backend не запускается"
+    return 0
+  }
+
   log "Запуск backend (uvicorn)..."
 
   local BACKEND_DIR="./backend"
-  local REQ_FILE="$BACKEND_DIR/requirements.txt"
 
   [[ -d "$BACKEND_DIR" ]] || die "backend directory not found"
 
-  # убиваем старый процесс
   pkill -f "uvicorn app:app" || true
 
   command -v python3 >/dev/null 2>&1 || die "python3 не установлен"
-  command -v pip3 >/dev/null 2>&1 || die "pip3 не установлен"
 
   pushd "$BACKEND_DIR" >/dev/null
 
-  apt-get install -y python3 python3-pip
-
-  # установка зависимостей через requirements
-  if [[ -f "requirements.txt" ]]; then
-    log "Установка зависимостей из requirements.txt..."
-    python3 -m pip install -r requirements.txt
-  else
+  if [[ ! -f "requirements.txt" ]]; then
     die "requirements.txt не найден в backend"
   fi
 
-  nohup python3 -m uvicorn app:app --host 0.0.0.0 --port 8000 \
+  log "Подготовка virtualenv..."
+
+  if [[ ! -d ".venv" ]]; then
+    python3 -m venv .venv
+  fi
+
+  # shellcheck disable=SC1091
+  source .venv/bin/activate
+
+  log "Обновление pip..."
+  pip install --upgrade pip
+
+  log "Установка зависимостей..."
+  pip install -r requirements.txt
+
+  log "Запуск uvicorn..."
+
+  nohup .venv/bin/python -m uvicorn app:app \
+    --host 0.0.0.0 \
+    --port 8000 \
     > api.log 2>&1 &
+
+  deactivate
 
   popd >/dev/null
 
@@ -471,6 +502,7 @@ main() {
 
   install_packages
   install_node
+  install_python
   enable_bbr
   configure_firewall
 
