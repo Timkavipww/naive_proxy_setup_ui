@@ -295,6 +295,38 @@ create_env_file() {
   log ".env created"
 }
 
+install_node() {
+  [[ -z "${UI_DOMAIN:-}" ]] && {
+    log "UI_DOMAIN не задан — пропуск установки Node.js"
+    return 0
+  }
+
+  if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
+    log "Node.js уже установлен: $(node -v)"
+    log "npm уже установлен: $(npm -v)"
+    return 0
+  fi
+
+  log "Установка Node.js через nvm..."
+
+  export NVM_DIR="/root/.nvm"
+
+  curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
+
+  # shellcheck disable=SC1091
+  \. "$NVM_DIR/nvm.sh"
+
+  nvm install 24
+  nvm use 24
+
+  ln -sf "$NVM_DIR/versions/node/$(nvm version 24)/bin/node" /usr/local/bin/node
+  ln -sf "$NVM_DIR/versions/node/$(nvm version 24)/bin/npm" /usr/local/bin/npm
+  ln -sf "$NVM_DIR/versions/node/$(nvm version 24)/bin/npx" /usr/local/bin/npx
+
+  log "Node.js установлен: $(node -v)"
+  log "npm установлен: $(npm -v)"
+}
+
 build_frontend() {
   [[ -z "${UI_DOMAIN:-}" ]] && {
     log "UI_DOMAIN не задан — пропуск сборки frontend"
@@ -438,6 +470,7 @@ main() {
   handle_inputs
 
   install_packages
+  install_node
   enable_bbr
   configure_firewall
 
