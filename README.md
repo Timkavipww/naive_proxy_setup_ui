@@ -120,8 +120,8 @@ apt install git -y
 ## Клонирование проекта
 
 ```bash
-git clone <repo>
-cd naiveproxy
+git clone https://github.com/Timkavipww/naive_proxy_setup_ui
+cd naive_proxy_setup_ui
 ```
 
 ---
