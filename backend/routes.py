@@ -23,7 +23,7 @@ def create_user(
     prefix: str = "user",
     _: str = Depends(check_auth),
 ):
-    suffix = gen_token(3)
+    suffix = gen_token(6)
 
     login = f"{prefix}_{suffix}"
     password = gen_token(24)
@@ -95,6 +95,12 @@ def delete_user(
 ):
     users = parse_users()
 
+    if not users:
+        raise HTTPException(
+            status_code=400,
+            detail="No users exist",
+        )
+
     exists = any(user["id"] == user_id for user in users)
 
     if not exists:
@@ -103,7 +109,21 @@ def delete_user(
             detail="User not found",
         )
 
+    if len(users) == 1:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot delete last remaining user",
+        )
+
     remove_user_from_file(user_id)
+
+    updated_users = parse_users()
+
+    if len(updated_users) == 0:
+        raise HTTPException(
+            status_code=500,
+            detail="Refusing state: no users left after deletion",
+        )
 
     if not validate_caddy():
         raise HTTPException(
@@ -120,4 +140,5 @@ def delete_user(
     return {
         "status": "ok",
         "message": f"{user_id} deleted",
+        "remaining_users": len(updated_users),
     }

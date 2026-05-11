@@ -1,208 +1,23 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap");
+@import "tailwindcss";
 
-:root {
-    --bg: #0b0d12;
-    --panel: #111521;
-    --border: rgba(255, 255, 255, 0.06);
-
-    --text: #e9ecf5;
-    --muted: #7f8796;
-
-    --accent: #7c5cff;
-    --danger: #ff4d6d;
-
-    --radius: 14px;
-}
-
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
+html,
+body {
+    height: 100%;
 }
 
 body {
     font-family: Inter, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-}
-
-/* minimal background (no lag in Firefox) */
-body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    background: radial-gradient(
-        circle at 20% 10%,
-        rgba(124, 92, 255, 0.15),
-        transparent 40%
-    );
-    pointer-events: none;
-}
-
-/* layout */
-.wrap {
-    width: min(1200px, 92%);
-    margin: 0 auto;
-    padding: 30px 0;
-}
-
-.center {
-    min-height: 100vh;
-    display: grid;
-    place-items: center;
-}
-
-/* header */
-.header {
-    margin-bottom: 20px;
-}
-
-.logo {
-    font-size: 34px;
-    font-weight: 600;
-}
-
-.sub {
-    font-size: 12px;
-    color: var(--muted);
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-}
-
-/* toolbar */
-.toolbar {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 18px;
-}
-
-input {
-    flex: 1;
-    height: 42px;
-    border-radius: var(--radius);
-    border: 1px solid var(--border);
-    background: var(--panel);
-    color: var(--text);
-    padding: 0 12px;
-}
-
-button {
-    height: 42px;
-    padding: 0 14px;
-    border-radius: var(--radius);
-    border: none;
-    cursor: pointer;
-    background: var(--accent);
+    background-color: #0b0d12;
     color: white;
-    font-weight: 600;
 }
 
-button:disabled {
-    opacity: 0.5;
+/* optional scrollbar styling */
+::-webkit-scrollbar {
+    width: 6px;
 }
 
-/* list */
-.list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-/* row */
-.row {
-    display: grid;
-    grid-template-columns: 200px 180px 1fr 160px;
-    gap: 12px;
-
-    padding: 14px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--panel);
-}
-
-/* cells */
-.cell .label {
-    font-size: 10px;
-    color: var(--muted);
-    text-transform: uppercase;
-    margin-bottom: 4px;
-}
-
-.value {
-    font-size: 13px;
-}
-
-.mono {
-    font-family: monospace;
-    font-size: 12px;
-    word-break: break-all;
-}
-
-/* links */
-.links {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.linkItem {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.labelSmall {
-    font-size: 10px;
-    color: var(--muted);
-}
-
-.linkText {
-    color: #8ecfff;
-}
-
-/* actions */
-.actions {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.danger {
-    background: rgba(255, 77, 109, 0.15);
-    color: #ff9ab0;
-}
-
-.ghost {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--text);
-}
-
-/* login */
-.card {
-    width: 320px;
-    padding: 20px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--panel);
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.loading {
-    text-align: center;
-    padding: 30px;
-    color: var(--muted);
-}
-
-/* responsive */
-@media (max-width: 900px) {
-    .row {
-        grid-template-columns: 1fr;
-    }
-
-    .actions {
-        flex-direction: row;
-    }
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
 }

@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import "./App.css";
+import { useState, useCallback } from "react";
 
 const API = "/api";
 
@@ -7,14 +6,8 @@ type User = {
   id: string;
   login: string;
   password?: string;
-  file?: string;
   link?: string;
   desktop?: string;
-};
-
-type UsersResponse = {
-  count: number;
-  users: User[];
 };
 
 const headers = () => ({
@@ -22,85 +15,43 @@ const headers = () => ({
   "x-admin-password": localStorage.getItem("admin_password") || "",
 });
 
-function safeString(v: unknown): string {
-  return typeof v === "string" ? v : "";
-}
+type Toast = {
+  id: number;
+  text: string;
+  type: "success" | "error";
+};
 
-function maskLink(value: unknown, visible: boolean) {
-  const v = safeString(value);
-  if (visible) return v;
-  return v.replace(/:([^:@]+)@/, ":***@");
-}
+function useToast() {
+  const [toasts, setToasts] = useState<Toast[]>([]);
 
-function maskPassword(value: unknown, visible: boolean) {
-  const v = safeString(value);
-  return visible ? v : "••••••••";
-}
+  const push = useCallback((text: string, type: Toast["type"] = "success") => {
+    const id = Date.now();
 
-function UserRow({
-  user,
-  onCopy,
-  onDelete,
-}: {
-  user: User;
-  onCopy: (t: string) => void;
-  onDelete: (id: string) => void;
-}) {
-  const [show, setShow] = useState(false);
+    setToasts((t) => [...t, { id, text, type }]);
 
-  return (
-    <div className="row">
-      <div className="cell">
-        <div className="label">USER</div>
-        <div className="value">{user.login}</div>
-      </div>
+    setTimeout(() => {
+      setToasts((t) => t.filter((x) => x.id !== id));
+    }, 2500);
+  }, []);
 
-      <div className="cell">
-        <div className="label">PASSWORD</div>
-        <div className="value mono">{maskPassword(user.password, show)}</div>
-      </div>
-
-      <div className="cell links">
-        <div className="linkItem">
-          <div className="labelSmall">Naive</div>
-          <div className="mono linkText">{maskLink(user.link, show)}</div>
-          <button onClick={() => onCopy(user.link ?? "")}>copy</button>
-        </div>
-
-        <div className="linkItem">
-          <div className="labelSmall">Desktop</div>
-          <div className="mono linkText">{maskLink(user.desktop, show)}</div>
-          <button onClick={() => onCopy(user.desktop ?? "")}>copy</button>
-        </div>
-      </div>
-
-      <div className="actions">
-        <button onClick={() => setShow((v) => !v)}>
-          {show ? "hide" : "show"}
-        </button>
-
-        <button className="danger" onClick={() => onDelete(user.id)}>
-          delete
-        </button>
-      </div>
-    </div>
-  );
+  return { toasts, push };
 }
 
 export default function App() {
   const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  const [prefix, setPrefix] = useState("app");
-  const [creating, setCreating] = useState(false);
+  const [auth, setAuth] = useState(false);
 
   const [password, setPassword] = useState(
     () => localStorage.getItem("admin_password") || "",
   );
 
-  const [auth, setAuth] = useState(() => !!password);
+  const [prefix, setPrefix] = useState("app");
+  const [loading, setLoading] = useState(false);
+  const [creating, setCreating] = useState(false);
 
-  const loadUsers = async () => {
+  const { toasts, push } = useToast();
+
+  const loadUsers = useCallback(async () => {
     setLoading(true);
 
     try {
@@ -113,21 +64,21 @@ export default function App() {
         return;
       }
 
-      const data: UsersResponse = await res.json();
+      const data = await res.json();
 
-      setUsers(
-        (data.users ?? []).map((u) => ({
-          id: u.id ?? "",
-          login: u.login ?? "",
-          password: u.password ?? "",
-          file: u.file ?? "",
-          link: u.link ?? "",
-          desktop: u.desktop ?? "",
-        })),
-      );
+      setUsers(data.users || []);
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  const login = () => {
+    if (!password) return;
+
+    localStorage.setItem("admin_password", password);
+    setAuth(true);
+
+    loadUsers();
   };
 
   const createUser = async () => {
@@ -139,6 +90,7 @@ export default function App() {
         headers: headers(),
       });
 
+      push("Пользователь создан", "success");
       await loadUsers();
     } finally {
       setCreating(false);
@@ -146,74 +98,108 @@ export default function App() {
   };
 
   const deleteUser = async (id: string) => {
-    if (!confirm(`Delete ${id}?`)) return;
+    if (users.length <= 1) {
+      push("Нельзя удалить последнего пользователя", "error");
+      return;
+    }
 
     await fetch(`${API}/users/${id}`, {
       method: "DELETE",
       headers: headers(),
     });
 
+    push("Удалено", "success");
     await loadUsers();
   };
 
-  const copy = (text: string) => {
+  const copy = (text?: string) => {
+    if (!text) return;
     navigator.clipboard.writeText(text);
+    push("Скопировано", "success");
   };
-
-  const login = () => {
-    localStorage.setItem("admin_password", password);
-    setAuth(true);
-  };
-
-  useEffect(() => {
-    if (!auth) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadUsers();
-  }, [auth]);
 
   if (!auth) {
     return (
-      <div className="center">
-        <div className="card">
-          <h2>Login</h2>
+      <div className="h-screen flex items-center justify-center bg-[#0b0d12] text-white">
+        <div className="bg-[#111521] p-6 rounded-xl border border-white/10 w-[320px] space-y-3">
+          <div className="text-lg font-semibold">Login</div>
 
           <input
             type="password"
+            className="w-full p-2 rounded-lg bg-black/30 border border-white/10"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
 
-          <button onClick={login}>login</button>
+          <button
+            onClick={login}
+            className="w-full bg-indigo-500 hover:bg-indigo-600 p-2 rounded-lg"
+          >
+            login
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="wrap">
-      <header className="header">
-        <div className="logo">NAIVE PANEL</div>
-        <div className="sub">proxy control system</div>
-      </header>
+    <div className="min-h-screen bg-[#0b0d12] text-white p-6">
+      {/* toasts */}
+      <div className="fixed top-4 right-4 space-y-2">
+        {toasts.map((t) => (
+          <div
+            key={t.id}
+            className={`px-3 py-2 rounded-lg text-sm border ${
+              t.type === "success"
+                ? "bg-green-500/10 border-green-500/30 text-green-300"
+                : "bg-red-500/10 border-red-500/30 text-red-300"
+            }`}
+          >
+            {t.text}
+          </div>
+        ))}
+      </div>
 
-      <div className="toolbar">
+      {/* header */}
+      <div className="mb-6">
+        <div className="text-3xl font-bold">NAIVE PANEL</div>
+      </div>
+
+      {/* toolbar */}
+      <div className="flex gap-2 mb-6">
         <input
           value={prefix}
           onChange={(e) => setPrefix(e.target.value)}
-          placeholder="prefix"
+          className="flex-1 p-2 rounded-lg bg-[#111521] border border-white/10"
         />
 
-        <button onClick={createUser} disabled={creating}>
-          {creating ? "creating..." : "create"}
+        <button
+          onClick={createUser}
+          disabled={creating}
+          className="px-4 rounded-lg bg-indigo-500"
+        >
+          {creating ? "..." : "create"}
         </button>
       </div>
 
-      <div className="list">
+      {/* list */}
+      <div className="space-y-3">
         {loading ? (
-          <div className="loading">loading...</div>
+          <div className="text-gray-400">loading...</div>
         ) : (
           users.map((u) => (
-            <UserRow key={u.id} user={u} onCopy={copy} onDelete={deleteUser} />
+            <div
+              key={u.id}
+              className="bg-[#111521] border border-white/10 rounded-xl p-4 grid grid-cols-1 md:grid-cols-4 gap-4"
+            >
+              <div>{u.login}</div>
+
+              <div className="font-mono text-xs text-blue-300">{u.link}</div>
+
+              <button onClick={() => copy(u.link)}>copy</button>
+
+              <button onClick={() => deleteUser(u.id)}>delete</button>
+            </div>
           ))
         )}
       </div>
