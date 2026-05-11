@@ -1,92 +1,123 @@
-﻿# 📘 NaiveProxy Full Stack Server
+﻿# 🚀 NaiveProxy Полноценный сервер (Full Stack)
 
-Production-ready installer for a **NaiveProxy + Caddy + Web UI + Backend API** stack.
+Production-ready система развёртывания:
 
-This project automates full deployment of a secure proxy system with:
-
-* NaiveProxy (via Caddy forwardproxy module)
-* Automatic TLS (Let’s Encrypt)
-* Web Admin Panel (React frontend)
-* Backend API (FastAPI + Uvicorn)
-* User management system
-* Firewall + TCP optimization
-* One-command install / uninstall
+- NaiveProxy
+- Caddy
+- React админ-панель
+- FastAPI backend
+- Автоматический TLS
+- systemd сервисы
+- Полная автоматизация установки и удаления
 
 ---
 
-# 🧱 Architecture Overview
+# ✨ Возможности
 
-```bash
-                    ┌──────────────┐
-                    │  Browser UI  │
-                    │ React Panel  │
-                    └──────┬───────┘
-                           │ HTTPS
-                           ▼
-                 ┌───────────────────┐
-                 │   Caddy Server    │
-                 │ TLS termination   │
-                 │ Reverse proxy     │
-                 └──────┬────┬───────┘
-                        │    │
-        ┌───────────────┘    └────────────────┐
-        ▼                                    ▼
-NaiveProxy endpoint                 Backend API (FastAPI)
-forwardproxy module                /api/users, /create-user
-```
+## 🔐 Ядро прокси (NaiveProxy)
+
+- Caddy + forwardproxy (NaiveProxy модуль)
+- Автоматический HTTPS (Let’s Encrypt)
+- Защита от probe detection
+- Пользовательская авторизация
+- Безопасный TLS прокси endpoint
+- Генерация пользователей
 
 ---
 
-# 🚀 Features
+## 🌐 Веб-панель (React)
 
-## 🔐 Proxy Core (NaiveProxy)
+Современная админ-панель для управления пользователями.
 
-* Caddy-based forward proxy
-* TLS via Let’s Encrypt
-* Basic Auth per user
-* Domain-based access control
-* Probe resistance enabled
+Возможности:
 
----
-
-## 🌐 Web UI (React)
-
-* Admin dashboard
-* User management (create / delete)
-* Copy NaiveProxy & Desktop links
-* Show / hide credentials
-* Auth via admin password
+- Создание пользователей
+- Удаление пользователей
+- Копирование proxy ссылок
+- Показ / скрытие паролей
+- Авторизация администратора
+- Быстрая статическая раздача через Caddy
 
 ---
 
 ## ⚙️ Backend API (FastAPI)
 
-* `/api/users` — list users
-* `/api/create-user` — create proxy user
-* `/api/users/{id}` — delete user
-* Admin authentication via header
-* Generates:
+Backend работает как отдельный `systemd` сервис.
 
-  * NaiveProxy link
-  * Desktop proxy link
+Функции:
 
----
-
-## 🛠 System automation
-
-* Automatic Go installation
-* xcaddy build system
-* systemd service for Caddy
-* optional backend background process (uvicorn)
-* frontend build automation
-* UFW firewall configuration
-* BBR TCP optimization
+- REST API
+- Управление пользователями
+- Генерация proxy конфигураций
+- Авторизация администратора
+- Интеграция с Caddy users
 
 ---
 
-# 📦 Installation
+## 🛠 Автоматизация
 
-## 1. Clone project
+Установщик автоматически настраивает:
+
+- Go
+- xcaddy
+- Сборку Caddy
+- Node.js
+- Python venv
+- Сборку frontend
+- Зависимости backend
+- systemd сервисы
+- Firewall (UFW)
+- Оптимизацию TCP (BBR)
+
+---
+
+# 🧱 Архитектура
+
+```text
+                    ┌────────────────────┐
+                    │   React Frontend   │
+                    │   Админ-панель     │
+                    └─────────┬──────────┘
+                              │ HTTPS
+                              ▼
+                    ┌────────────────────┐
+                    │       Caddy        │
+                    │ TLS + ReverseProxy │
+                    │  NaiveProxy core   │
+                    └─────────┬──────────┘
+                              │
+              ┌───────────────┴────────────────┐
+              ▼                                ▼
+     FastAPI Backend (systemd)        NaiveProxy endpoint
+        localhost:8000                 forwardproxy module
+```
+
+---
+
+# 📦 Требования
+
+- Ubuntu 22.04+ / Debian
+- Root доступ
+- Открытые порты:
+  - 80
+  - 443
+
+---
+
+# ⚡ Перед установкой
+
+Обязательно обновить систему и установить git:
+
+```bash
+apt update && apt upgrade -y
+apt install git -y
+```
+
+---
+
+# 📥 Установка
+
+## Клонирование проекта
 
 ```bash
 git clone <repo>
@@ -95,7 +126,7 @@ cd naiveproxy
 
 ---
 
-## 2. Run installer
+## Запуск установщика
 
 ```bash
 chmod +x scripts/install.sh
@@ -104,159 +135,152 @@ chmod +x scripts/install.sh
 
 ---
 
-## 3. Setup process includes:
+# 🧭 Процесс установки
 
-* Proxy domain
-* TLS email (shared for all certificates)
-* Optional UI domain
-* Admin password (if UI enabled)
+Во время установки будут запрошены:
+
+## Домен прокси
+
+Пример:
+
+```text
+proxy.example.com
+```
+
+Используется для NaiveProxy endpoint.
 
 ---
 
-# 🌍 Access after install
+## Email для TLS
 
-## Proxy link
+Пример:
 
-```bash
-naive+https://USER:PASSWORD@your-domain:443
+```text
+admin@example.com
+```
+
+Используется для сертификатов Let’s Encrypt.
+
+---
+
+## Домен панели (опционально)
+
+Пример:
+
+```text
+ui.example.com
+```
+
+Если не указан:
+
+- UI не устанавливается
+- Backend не запускается
+
+---
+
+## Пароль администратора
+
+Требуется только если включён UI.
+
+---
+
+# 🌍 Доступ после установки
+
+## NaiveProxy
+
+```text
+naive+https://LOGIN:PASSWORD@proxy.example.com:443
 ```
 
 ---
 
-## Web UI
+## Веб-панель
 
-```bash
-https://ui.your-domain
+```text
+https://ui.example.com
 ```
 
 ---
 
-## API
+## API Backend
 
-```bash
-https://ui.your-domain/api/users
+```text
+https://ui.example.com/api/users
 ```
 
 ---
 
-# 👤 User Management
+# 👤 Пользователи
 
-Users are generated automatically and stored in:
+Пользователи хранятся в:
 
 ```bash
 /etc/caddy/users/
 ```
 
-Each user contains:
+Каждый файл содержит:
 
-* login
-* password
-* NaiveProxy link
-* Desktop proxy link
+- логин
+- пароль
+- конфигурацию Caddy forwardproxy
 
 ---
 
-# 🧪 Backend
+# ⚙️ systemd сервисы
 
-Runs via:
-
-```bash
-uvicorn app:app --host 0.0.0.0 --port 8000
-```
-
-Logs:
+## Caddy
 
 ```bash
-api.log
+systemctl status caddy
 ```
 
 ---
 
-# 🌐 Frontend build
-
-If UI enabled:
+## Backend
 
 ```bash
-cd frontend
-npm install
-npm run build
-```
-
-Output:
-
-```bash
-/var/www/react
+systemctl status naiveproxy-backend
 ```
 
 ---
 
-# 🔐 Security
-
-* Admin auth via header:
-
-  ```bash
-  x-admin-password
-  ```bash
-
-* Password stored locally in:
-
-  ```bash
-  /root/naiveproxy.env
-  ```
-
-* TLS automatically issued via Caddy
-
----
-
-# ⚡ System requirements
-
-* Ubuntu / Debian
-* Root access
-* Ports:
-
-  * 80 (HTTP / ACME challenge)
-  * 443 (TLS / proxy)
-
----
-
-# 🧹 Uninstall
-
-Full cleanup script:
+## Перезапуск backend
 
 ```bash
-chmod +x scripts/uninstall.sh
-./scripts/uninstall.sh
+systemctl restart naiveproxy-backend
 ```
 
-Supports:
+---
 
-* Stop Caddy service
-* Remove Go / xcaddy
-* Remove backend (optional)
-* Remove frontend (optional)
-* Remove `/var/www/react`
-* Remove configs `/etc/caddy`
-* Clean firewall rules
+## Логи backend
+
+```bash
+journalctl -u naiveproxy-backend -f
+```
 
 ---
 
-# 📁 Project structure
+# 📁 Структура проекта
 
-```bash
-.
-├── scripts/
-│   ├── install.sh
-│   └── uninstall.sh
+```text
+naiveproxy/
 │
 ├── backend/
 │   ├── app.py
 │   ├── requirements.txt
-│   └── .env.example
+│   ├── .env
+│   ├── .env.example
+│   └── .venv/
 │
 ├── frontend/
 │   ├── src/
+│   ├── public/
 │   ├── package.json
 │   └── dist/
+│
+├── scripts/
+│   ├── install.sh
+│   └── uninstall.sh
 │
 ├── index.html
 └── README.md
@@ -264,73 +288,231 @@ Supports:
 
 ---
 
-# 🔁 State persistence
+# 🔧 Backend
 
-Installation state stored in:
+Backend работает как systemd сервис.
+
+## Имя сервиса
+
+```text
+naiveproxy-backend
+```
+
+---
+
+## Управление
+
+Запуск:
+
+```bash
+systemctl start naiveproxy-backend
+```
+
+---
+
+Перезапуск:
+
+```bash
+systemctl restart naiveproxy-backend
+```
+
+---
+
+Логи:
+
+```bash
+journalctl -u naiveproxy-backend -f
+```
+
+---
+
+# 🌐 Frontend
+
+Frontend собирается автоматически при установке.
+
+## Папка результата
+
+```bash
+/var/www/react
+```
+
+---
+
+## Ручная сборка
+
+```bash
+cd frontend
+npm install
+npm run build
+```
+
+---
+
+# 🔐 Безопасность
+
+## Авторизация API
+
+Backend использует заголовок:
+
+```text
+x-admin-password
+```
+
+---
+
+## TLS
+
+Сертификаты автоматически выдаются через Caddy (Let’s Encrypt).
+
+---
+
+## Firewall
+
+Настраиваются порты:
+
+- 80
+- 443
+
+через UFW
+
+---
+
+## BBR
+
+Включается TCP оптимизация BBR автоматически.
+
+---
+
+# 📄 Конфигурация
+
+## Caddy
+
+```bash
+/etc/caddy/Caddyfile
+```
+
+---
+
+## Пользователи
+
+```bash
+/etc/caddy/users/
+```
+
+---
+
+## Состояние установки
 
 ```bash
 /root/naiveproxy.env
 ```
 
-Contains:
+Содержит:
 
-* DOMAIN
-* EMAIL
-* LOGIN
-* PASSWORD
-
----
-
-# 🧠 Notes
-
-* Caddy is compiled via `xcaddy` with forwardproxy module
-* Backend is intentionally lightweight (no systemd by default)
-* Frontend is static build served via Caddy
-* UI and proxy domains can be separated
-* TLS email is shared across all certificates (recommended)
+```text
+DOMAIN
+EMAIL
+LOGIN
+PASSWORD
+UI_DOMAIN
+```
 
 ---
 
-# ⚠️ Known limitations
+# 🧹 Удаление
 
-* Backend runs via `nohup` (not systemd yet)
-* No multi-node support
-* No database layer (users stored in files)
-* No rate limiting by default
+Запуск:
 
----
-
-# 🚀 Future improvements
-
-Planned upgrades:
-
-* systemd backend service
-* Redis / DB user storage
-* rate limiting per user
-* dashboard analytics
-* auto-reload frontend/backend
-* multi-domain support
-* docker version
+```bash
+chmod +x scripts/uninstall.sh
+./scripts/uninstall.sh
+```
 
 ---
 
-# 👤 Author
+# 🧰 Возможности удаления
 
-Based on:
+Можно удалить:
 
-[https://github.com/RedDevBook/naiveproxy-server-setup](https://github.com/RedDevBook/naiveproxy-server-setup)
-
-Extended into full-stack proxy control system with UI + backend automation.
+- Caddy
+- backend systemd сервис
+- frontend
+- Go
+- xcaddy
+- конфигурации
+- firewall правила
+- собранный frontend
+- полная очистка системы
 
 ---
 
-# 💡 Summary
+# 🚀 Производительность
 
-This is no longer just an installer.
+Оптимизации:
 
-It is a **full proxy management system** with:
+- HTTP/2 и HTTP/3
+- TLS ускорение
+- BBR
+- статическая раздача frontend
+- reverse proxy через Caddy
+- лёгкий FastAPI backend
 
-* Proxy server
-* Admin panel
-* API backend
-* Automated deployment
+---
+
+# 🔮 Планы развития
+
+Будущие улучшения:
+
+- Docker версия
+- PostgreSQL / Redis
+- rate limiting пользователей
+- аналитика трафика
+- multi-admin поддержка
+- автообновления
+- мультидоменность
+- API tokens
+- TTL пользователей
+- WebSocket поддержка
+
+---
+
+# 📚 Технологии
+
+## Backend
+
+- Python
+- FastAPI
+- Uvicorn
+
+---
+
+## Frontend
+
+- React
+- TypeScript
+- Vite
+
+---
+
+## Инфраструктура
+
+- Caddy
+- NaiveProxy
+- systemd
+- UFW
+
+---
+
+# 💡 Итог
+
+Это не просто установщик.
+
+Это полноценная система управления прокси:
+
+- безопасный NaiveProxy сервер
+- автоматический HTTPS
+- современная админ-панель
+- backend API
+- systemd интеграция
+- полностью автоматическое развёртывание
+```
