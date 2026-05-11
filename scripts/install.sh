@@ -165,29 +165,32 @@ install_go() {
 
   if command -v go >/dev/null 2>&1; then
     log "Go already installed: $(go version)"
-    return 0
+  else
+    local GO_VERSION
+    GO_VERSION="$(curl -fsSL https://go.dev/VERSION?m=text | head -n1)"
+
+    [[ "$GO_VERSION" =~ ^go ]] || die "Не удалось получить версию Go"
+
+    log "Installing Go $GO_VERSION"
+
+    curl -fsSL "https://go.dev/dl/${GO_VERSION}.linux-${GO_ARCH}.tar.gz" \
+      -o /tmp/go.tar.gz
+
+    rm -rf /usr/local/go
+
+    tar -C /usr/local -xzf /tmp/go.tar.gz
+
+    ln -sf /usr/local/go/bin/go /usr/local/bin/go
   fi
 
-  local GO_VERSION
+  export PATH="/usr/local/go/bin:$PATH"
+  export GOPATH="/opt/go"
+  export GOCACHE="/var/cache/go-build"
+  export GOMODCACHE="/opt/go/pkg/mod"
 
-  GO_VERSION="$(curl -fsSL https://go.dev/VERSION?m=text | head -n1)"
+  mkdir -p "$GOPATH" "$GOCACHE"
 
-  [[ "$GO_VERSION" =~ ^go ]] || die "Не удалось получить версию Go"
-
-  log "Installing Go $GO_VERSION"
-
-  curl -fsSL "https://go.dev/dl/${GO_VERSION}.linux-${GO_ARCH}.tar.gz" \
-    -o /tmp/go.tar.gz
-
-  rm -rf /usr/local/go
-
-  tar -C /usr/local -xzf /tmp/go.tar.gz
-
-  export PATH="$PATH:/usr/local/go/bin"
-
-  ln -sf /usr/local/go/bin/go /usr/local/bin/go
-
-  go version
+  log "Go ready: $(go version)"
 }
 
 install_node() {
@@ -211,13 +214,17 @@ install_node() {
 
 build_caddy() {
 
-  export PATH="$PATH:/usr/local/go/bin"
+  export PATH="/usr/local/go/bin:$PATH"
+  export GOPATH="/opt/go"
+  export GOCACHE="/var/cache/go-build"
+
+  mkdir -p "$GOPATH" "$GOCACHE"
 
   if ! command -v xcaddy >/dev/null 2>&1; then
     go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
   fi
 
-  export PATH="$PATH:/root/go/bin"
+  export PATH="$PATH:/opt/go/bin"
 
   if [[ -f /usr/bin/caddy ]]; then
     log "Caddy already exists"
@@ -226,7 +233,7 @@ build_caddy() {
 
   log "Building Caddy"
 
-  /root/go/bin/xcaddy build \
+  xcaddy build \
     --output /usr/bin/caddy \
     --with github.com/caddyserver/forwardproxy=github.com/klzgrad/forwardproxy@naive
 
@@ -251,6 +258,20 @@ create_web_root() {
 
 gen_token() {
   openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c "$1"
+}
+
+cleanup_root_traces() {
+
+  log "Cleaning root leftovers..."
+
+  rm -rf /root/go
+  rm -rf /root/snap
+  rm -rf /root/.cache/go-build
+
+  rm -rf /opt/go/pkg/mod
+  rm -rf /opt/go/bin
+
+  log "Root traces cleaned"
 }
 
 create_users_file() {
@@ -487,6 +508,8 @@ main() {
   configure_firewall
 
   install_go
+
+  cleanup_root_traces
 
   install_node
 
