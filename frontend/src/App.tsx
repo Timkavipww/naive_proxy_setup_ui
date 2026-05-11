@@ -1,44 +1,54 @@
-import { useState, useCallback } from "react";
+import { useCallback, useState } from "react";
 import "./App.css";
 
-const API = "/api";
+import { userService } from "./api/userService";
+import type { User } from "./types/user";
+import { useToast } from "./hooks/useToast";
 
-type User = {
-  id: string;
-  login: string;
-  password?: string;
-  link?: string;
-  desktop?: string;
+type Lang = "ru" | "eu";
+
+const dict = {
+  ru: {
+    login: "Войти",
+    create: "Создать",
+    delete: "Удалить",
+    copy: "Скопировать",
+    loading: "загрузка...",
+    userCreated: "Пользователь создан",
+    copied: "Скопировано",
+    cannotDelete: "Нельзя удалить последнего пользователя",
+    prefix: "Префикс",
+    lang: "RU",
+  },
+  eu: {
+    login: "Login",
+    create: "Create",
+    delete: "Delete",
+    copy: "Copy",
+    loading: "loading...",
+    userCreated: "User created",
+    copied: "Copied",
+    cannotDelete: "Cannot delete last user",
+    prefix: "Prefix",
+    lang: "EU",
+  },
 };
-
-const headers = () => ({
-  "Content-Type": "application/json",
-  "x-admin-password": localStorage.getItem("admin_password") || "",
-});
-
-type Toast = {
-  id: number;
-  text: string;
-  type: "success" | "error";
-};
-
-function useToast() {
-  const [toasts, setToasts] = useState<Toast[]>([]);
-
-  const push = useCallback((text: string, type: Toast["type"] = "success") => {
-    const id = Date.now();
-
-    setToasts((t) => [...t, { id, text, type }]);
-
-    setTimeout(() => {
-      setToasts((t) => t.filter((x) => x.id !== id));
-    }, 2500);
-  }, []);
-
-  return { toasts, push };
-}
 
 export default function App() {
+  const [lang, setLang] = useState<Lang>(
+    () => (localStorage.getItem("lang") as Lang) || "ru",
+  );
+
+  const t = dict[lang];
+
+  const switchLang = () => {
+    setLang((prev) => {
+      const next = prev === "ru" ? "eu" : "ru";
+      localStorage.setItem("lang", next);
+      return next;
+    });
+  };
+
   const [users, setUsers] = useState<User[]>([]);
   const [auth, setAuth] = useState(false);
 
@@ -50,24 +60,15 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
 
+  const [visibleLinks, setVisibleLinks] = useState<Record<string, boolean>>({});
+
   const { toasts, push } = useToast();
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
-
     try {
-      const res = await fetch(`${API}/users`, {
-        headers: headers(),
-      });
-
-      if (res.status === 403) {
-        setAuth(false);
-        return;
-      }
-
-      const data = await res.json();
-
-      setUsers(data.users || []);
+      const data = await userService.getUsers();
+      setUsers(data);
     } finally {
       setLoading(false);
     }
@@ -78,20 +79,15 @@ export default function App() {
 
     localStorage.setItem("admin_password", password);
     setAuth(true);
-
     loadUsers();
   };
 
   const createUser = async () => {
     setCreating(true);
-
     try {
-      await fetch(`${API}/create-user?prefix=${prefix}`, {
-        method: "POST",
-        headers: headers(),
-      });
+      await userService.createUser(prefix);
 
-      push("Пользователь создан", "success");
+      push(t.userCreated, "success");
       await loadUsers();
     } finally {
       setCreating(false);
@@ -100,43 +96,44 @@ export default function App() {
 
   const deleteUser = async (id: string) => {
     if (users.length <= 1) {
-      push("Нельзя удалить последнего пользователя", "error");
+      push(t.cannotDelete, "error");
       return;
     }
 
-    await fetch(`${API}/users/${id}`, {
-      method: "DELETE",
-      headers: headers(),
-    });
+    await userService.deleteUser(id);
 
-    push("Удалено", "success");
+    push(t.delete, "success");
     await loadUsers();
   };
 
   const copy = (text?: string) => {
     if (!text) return;
     navigator.clipboard.writeText(text);
-    push("Скопировано", "success");
+    push(t.copied, "success");
+  };
+
+  const toggleLink = (id: string) => {
+    setVisibleLinks((p) => ({ ...p, [id]: !p[id] }));
+  };
+
+  const maskLink = (link?: string) => {
+    if (!link) return "";
+    return link.replace(/:\/\/.*@/, "://***@");
   };
 
   if (!auth) {
     return (
-      <div className="h-screen flex items-center justify-center bg-[#0b0d12] text-white">
-        <div className="bg-[#111521] p-6 rounded-xl border border-white/10 w-[320px] space-y-3">
-          <div className="text-lg font-semibold">Login</div>
-
+      <div className="h-screen flex items-center justify-center">
+        <div className="panel w-[320px] space-y-3">
           <input
             type="password"
-            className="w-full p-2 rounded-lg bg-black/30 border border-white/10"
+            className="input"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
 
-          <button
-            onClick={login}
-            className="w-full bg-indigo-500 hover:bg-indigo-600 p-2 rounded-lg"
-          >
-            login
+          <button className="btn primary w-full" onClick={login}>
+            {t.login}
           </button>
         </div>
       </div>
@@ -144,62 +141,65 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0b0d12] text-white p-6">
+    <div className="p-6">
+      {/* header + lang */}
+      <div className="flex justify-between items-center mb-6">
+        <div className="text-2xl font-bold">NAIVE PANEL</div>
+
+        <button className="btn" onClick={switchLang}>
+          {t.lang}
+        </button>
+      </div>
+
       {/* toasts */}
-      <div className="fixed top-4 right-4 space-y-2">
+      <div className="fixed bottom-4 right-4 space-y-2">
         {toasts.map((t) => (
-          <div
-            key={t.id}
-            className={`px-3 py-2 rounded-lg text-sm border ${
-              t.type === "success"
-                ? "bg-green-500/10 border-green-500/30 text-green-300"
-                : "bg-red-500/10 border-red-500/30 text-red-300"
-            }`}
-          >
+          <div key={t.id} className="panel text-sm">
             {t.text}
           </div>
         ))}
       </div>
 
-      {/* header */}
-      <div className="mb-6">
-        <div className="text-3xl font-bold">NAIVE PANEL</div>
-      </div>
-
       {/* toolbar */}
       <div className="flex gap-2 mb-6">
         <input
+          className="input flex-1"
           value={prefix}
           onChange={(e) => setPrefix(e.target.value)}
-          className="flex-1 p-2 rounded-lg bg-[#111521] border border-white/10"
+          placeholder={t.prefix}
         />
 
-        <button
-          onClick={createUser}
-          disabled={creating}
-          className="px-4 rounded-lg bg-indigo-500"
-        >
-          {creating ? "..." : "create"}
+        <button className="btn primary" onClick={createUser}>
+          {creating ? "..." : t.create}
         </button>
       </div>
 
-      {/* list */}
+      {/* users */}
       <div className="space-y-3">
         {loading ? (
-          <div className="text-gray-400">loading...</div>
+          <div>{t.loading}</div>
         ) : (
           users.map((u) => (
-            <div
-              key={u.id}
-              className="bg-[#111521] border border-white/10 rounded-xl p-4 grid grid-cols-1 md:grid-cols-4 gap-4"
-            >
+            <div key={u.id} className="panel flex justify-between">
               <div>{u.login}</div>
 
-              <div className="font-mono text-xs text-blue-300">{u.link}</div>
+              <div className="flex gap-2 items-center">
+                <div className="text-xs">
+                  {visibleLinks[u.id] ? u.link : maskLink(u.link)}
+                </div>
 
-              <button onClick={() => copy(u.link)}>copy</button>
+                <button className="btn" onClick={() => toggleLink(u.id)}>
+                  👁
+                </button>
 
-              <button onClick={() => deleteUser(u.id)}>delete</button>
+                <button className="btn" onClick={() => copy(u.link)}>
+                  {t.copy}
+                </button>
+
+                <button className="btn danger" onClick={() => deleteUser(u.id)}>
+                  {t.delete}
+                </button>
+              </div>
             </div>
           ))
         )}
