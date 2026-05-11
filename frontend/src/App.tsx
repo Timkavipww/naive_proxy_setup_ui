@@ -56,7 +56,7 @@ export default function App() {
     () => localStorage.getItem("admin_password") || "",
   );
 
-  const [prefix, setPrefix] = useState("app");
+  const [prefix, setPrefix] = useState("user");
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
 
@@ -118,7 +118,26 @@ export default function App() {
 
   const maskLink = (link?: string) => {
     if (!link) return "";
-    return link.replace(/:\/\/.*@/, "://***@");
+
+    try {
+      const cleaned = link.replace("naive+", "");
+
+      const url = new URL(cleaned);
+
+      const auth = "***";
+
+      const hostParts = url.hostname.split(".");
+
+      let maskedHost = "***";
+
+      if (hostParts.length >= 2) {
+        maskedHost = `${hostParts[0]}.***`;
+      }
+
+      return `naive+https://${auth}@${maskedHost}${url.port ? `:${url.port}` : ""}`;
+    } catch {
+      return "hidden";
+    }
   };
 
   if (!auth) {
