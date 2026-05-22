@@ -22,7 +22,7 @@ die() {
   exit 1
 }
 
-trap 'die "Ошибка на строке $LINENO"' ERR
+trap 'echo "[x] Command failed: $BASH_COMMAND (line $LINENO)"' ERR
 
 require_root() {
   [[ "$EUID" -eq 0 ]] || die "Запусти скрипт от root"
@@ -179,16 +179,16 @@ install_go() {
     rm -rf /usr/local/go
 
     tar -C /usr/local -xzf /tmp/go.tar.gz
-
-    ln -sf /usr/local/go/bin/go /usr/local/bin/go
   fi
 
-  export PATH="/usr/local/go/bin:$PATH"
+  export PATH="/usr/local/go/bin:/usr/local/bin:$PATH"
+
   export GOPATH="/opt/go"
   export GOCACHE="/var/cache/go-build"
   export GOMODCACHE="/opt/go/pkg/mod"
+  export GOBIN="/usr/local/bin"
 
-  mkdir -p "$GOPATH" "$GOCACHE"
+  mkdir -p "$GOPATH" "$GOCACHE" "$GOBIN"
 
   log "Go ready: $(go version)"
 }
@@ -223,8 +223,6 @@ build_caddy() {
   if ! command -v xcaddy >/dev/null 2>&1; then
     go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
   fi
-
-  export PATH="$PATH:/opt/go/bin"
 
   if [[ -f /usr/bin/caddy ]]; then
     log "Caddy already exists"
@@ -267,9 +265,7 @@ cleanup_root_traces() {
   rm -rf /root/go
   rm -rf /root/snap
   rm -rf /root/.cache/go-build
-
-  rm -rf /opt/go/pkg/mod
-  rm -rf /opt/go/bin
+  rm -rf /usr/local/go-work/pkg/mod
 
   log "Root traces cleaned"
 }
@@ -496,7 +492,6 @@ main() {
   require_root
 
   check_system
-
   check_ports
 
   handle_inputs
@@ -504,34 +499,27 @@ main() {
   install_packages
 
   enable_bbr
-
   configure_firewall
 
   install_go
-
-  cleanup_root_traces
-
   install_node
 
   build_caddy
 
   create_web_root
-
   create_users_file
-
   create_env_file
 
   build_frontend
-
   setup_backend
 
   create_backend_service
-
   create_caddyfile
-
   create_caddy_service
 
   start_services
+
+  cleanup_root_traces
 
   echo
   log "Installation completed"
