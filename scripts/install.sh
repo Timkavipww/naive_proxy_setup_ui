@@ -22,7 +22,7 @@ die() {
   exit 1
 }
 
-trap 'echo "[x] Command failed: $BASH_COMMAND (line $LINENO)"' ERR
+trap 'echo "[x] Command failed: $BASH_COMMAND (line $LINENO)"; exit 1' ERR
 
 require_root() {
   [[ "$EUID" -eq 0 ]] || die "Запусти скрипт от root"
@@ -107,6 +107,16 @@ handle_inputs() {
   export ADMIN_PASSWORD
 }
 
+check_dns() {
+  local IP
+  IP="$(curl -4 -fsSL https://api.ipify.org)"
+
+  local DOMAIN_IP
+  DOMAIN_IP="$(dig +short "$DOMAIN" A | tail -n1)"
+
+  [[ "$IP" == "$DOMAIN_IP" ]] || die "DOMAIN не указывает на сервер"
+}
+
 save_state() {
   cat > "$STATE_FILE" <<EOF
 DOMAIN=$DOMAIN
@@ -183,8 +193,8 @@ install_go() {
     tar -C /usr/local -xzf /tmp/go.tar.gz
   fi
 
-  export PATH="/usr/local/go/bin:/usr/local/bin:$PATH"
 
+  export PATH="/usr/local/go/bin:/usr/local/bin:$PATH"
   export GOPATH="/opt/go"
   export GOCACHE="/var/cache/go-build"
   export GOMODCACHE="/opt/go/pkg/mod"
@@ -499,6 +509,7 @@ main() {
   handle_inputs
 
   install_packages
+  check_dns
 
   enable_bbr
   configure_firewall
@@ -524,7 +535,7 @@ main() {
   cleanup_root_traces
 
   echo
-  log "Installation completed"
+  log "Установка завершена"
   echo
 
   echo "NaiveProxy:"
