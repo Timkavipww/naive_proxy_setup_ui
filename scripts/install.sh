@@ -126,6 +126,8 @@ install_packages() {
   apt-get update -y
 
   apt-get install -y \
+    git \
+    build-essential \
     curl \
     wget \
     tar \
