@@ -107,14 +107,17 @@ handle_inputs() {
   export ADMIN_PASSWORD
 }
 
-check_dns() {
-  local IP
-  IP="$(curl -4 -fsSL https://api.ipify.org)"
+check_domain_dns() {
+    local domain="$1"
 
-  local DOMAIN_IP
-  DOMAIN_IP="$(dig +short "$DOMAIN" A | tail -n1)"
+    local server_ip
+    server_ip="$(curl -4fsSL https://api.ipify.org)"
 
-  [[ "$IP" == "$DOMAIN_IP" ]] || die "DOMAIN не указывает на сервер"
+    local dns_ip
+    dns_ip="$(dig +short A "$domain" | tail -n1)"
+
+    [[ "$server_ip" == "$dns_ip" ]] \
+        || die "$domain не указывает на сервер ($dns_ip != $server_ip)"
 }
 
 save_state() {
@@ -508,8 +511,13 @@ main() {
 
   handle_inputs
 
+  check_domain_dns "$DOMAIN"
+
+  if [[ -n "$UI_DOMAIN" ]]; then
+      check_domain_dns "$UI_DOMAIN"
+  fi
+
   install_packages
-  check_dns
 
   enable_bbr
   configure_firewall
