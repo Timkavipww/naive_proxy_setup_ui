@@ -22,7 +22,16 @@ die() {
   exit 1
 }
 
-trap 'echo "[x] Command failed: $BASH_COMMAND (line $LINENO)"; exit 1' ERR
+cleanup() {
+    warn "Failure detected → rolling back"
+
+    systemctl stop caddy 2>/dev/null || true
+    systemctl stop naiveproxy-backend 2>/dev/null || true
+
+    systemctl reset-failed caddy 2>/dev/null || true
+    systemctl reset-failed naiveproxy-backend 2>/dev/null || true
+}
+trap cleanup ERR
 
 require_root() {
   [[ "$EUID" -eq 0 ]] || die "Запусти скрипт от root"
@@ -59,7 +68,7 @@ check_system() {
 
 check_ports() {
   for port in 80 443; do
-    if ss -tln "( sport = :$port )" | tail -n +2 | grep -q .; then
+    if ss -lnt "( sport = :$port )" | grep -q LISTEN; then
       die "Порт $port уже используется"
     fi
   done
@@ -161,7 +170,7 @@ configure_firewall() {
 
   ufw --force enable >/dev/null 2>&1 || true
 
-  log "UFW configured"
+  log "UFW настроен"
 }
 
 enable_bbr() {
@@ -173,20 +182,20 @@ EOF
 
   sysctl --system >/dev/null 2>&1 || true
 
-  log "BBR enabled"
+  log "BBR включен"
 }
 
 install_go() {
 
   if command -v go >/dev/null 2>&1; then
-    log "Go already installed: $(go version)"
+    log "Go уже установлен: $(go version)"
   else
     local GO_VERSION
     GO_VERSION="$(curl -fsSL https://go.dev/VERSION?m=text | head -n1)"
 
     [[ "$GO_VERSION" =~ ^go ]] || die "Не удалось получить версию Go"
 
-    log "Installing Go $GO_VERSION"
+    log "Устанавливаю Go $GO_VERSION"
 
     curl -fsSL "https://go.dev/dl/${GO_VERSION}.linux-${GO_ARCH}.tar.gz" \
       -o /tmp/go.tar.gz
@@ -205,7 +214,7 @@ install_go() {
 
   mkdir -p "$GOPATH" "$GOCACHE" "$GOBIN"
 
-  log "Go ready: $(go version)"
+  log "Go готов: $(go version)"
 }
 
 install_node() {
@@ -213,11 +222,11 @@ install_node() {
   [[ -z "${UI_DOMAIN:-}" ]] && return 0
 
   if command -v node >/dev/null 2>&1; then
-    log "Node already installed: $(node -v)"
+    log "Node уже установлен: $(node -v)"
     return 0
   fi
 
-  log "Installing Node.js"
+  log "Устанавливаю Node.js"
 
   curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
 
@@ -235,16 +244,20 @@ build_caddy() {
 
   mkdir -p "$GOPATH" "$GOCACHE"
 
+  if command -v /usr/bin/caddy >/dev/null 2>&1; then
+      if /usr/bin/caddy version | grep -q forwardproxy; then
+          log "Caddy уже собран с forwardproxy"
+          return 0
+      fi
+
+      warn "Caddy существует, но без forwardproxy → перезапускаю"
+  fi
+
   if ! command -v xcaddy >/dev/null 2>&1; then
-    go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
+      go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
   fi
 
-  if [[ -f /usr/bin/caddy ]]; then
-    log "Caddy already exists"
-    return 0
-  fi
-
-  log "Building Caddy"
+  log "Собираю Caddy"
 
   xcaddy build \
     --output /usr/bin/caddy \
@@ -275,14 +288,14 @@ gen_token() {
 
 cleanup_root_traces() {
 
-  log "Cleaning root leftovers..."
+  log "Очищаю остатки root"
 
   rm -rf /root/go
   rm -rf /root/snap
   rm -rf /root/.cache/go-build
   rm -rf /usr/local/go-work/pkg/mod
 
-  log "Root traces cleaned"
+  log "Остатки root очищены"
 }
 
 create_users_file() {
@@ -311,14 +324,14 @@ create_env_file() {
   local ENV_EXAMPLE="${PROJECT_ROOT}/backend/.env.example"
   local ENV_FILE="${PROJECT_ROOT}/backend/.env"
 
-  [[ -f "$ENV_EXAMPLE" ]] || die ".env.example not found"
+  [[ -f "$ENV_EXAMPLE" ]] || die ".env.example не найден"
 
   cp "$ENV_EXAMPLE" "$ENV_FILE"
 
   sed -i "s|DOMAIN=.*|DOMAIN=${DOMAIN}|g" "$ENV_FILE"
   sed -i "s|ADMIN_PASSWORD=.*|ADMIN_PASSWORD=${ADMIN_PASSWORD}|g" "$ENV_FILE"
 
-  log ".env created"
+  log ".env создан"
 }
 
 build_frontend() {
@@ -327,11 +340,12 @@ build_frontend() {
 
   local FRONTEND_DIR="${PROJECT_ROOT}/frontend"
 
-  [[ -d "$FRONTEND_DIR" ]] || die "frontend folder not found"
+  [[ -d "$FRONTEND_DIR" ]] || die "frontend папка не найдена"
 
   pushd "$FRONTEND_DIR" >/dev/null
 
-  npm install
+  npm ci --prefer-offline --no-audit
+
   npm run build
 
   popd >/dev/null
@@ -341,7 +355,7 @@ build_frontend() {
 
   chmod -R 755 /var/www/react
 
-  log "Frontend built"
+  log "Frontend собран"
 }
 
 setup_backend() {
@@ -350,26 +364,21 @@ setup_backend() {
 
   local BACKEND_DIR="${PROJECT_ROOT}/backend"
 
-  [[ -d "$BACKEND_DIR" ]] || die "backend folder not found"
+  [[ -d "$BACKEND_DIR" ]] || die "backend папка не найдена"
 
   pushd "$BACKEND_DIR" >/dev/null
 
-  if [[ ! -d ".venv" ]]; then
-    python3 -m venv .venv
+  if [[ ! -f .venv/bin/python ]]; then
+      python3 -m venv .venv
   fi
 
-  # shellcheck disable=SC1091
-  source .venv/bin/activate
+  .venv/bin/pip install --upgrade pip
 
-  pip install --upgrade pip
-
-  pip install -r requirements.txt
-
-  deactivate
+  .venv/bin/pip install -r requirements.txt
 
   popd >/dev/null
 
-  log "Backend prepared"
+  log "Backend подготовлен"
 }
 
 create_backend_service() {
@@ -405,7 +414,7 @@ EOF
 
   systemctl restart naiveproxy-backend
 
-  log "Backend systemd service created"
+  log "backend systemd сервис создан"
 }
 
 create_caddyfile() {
