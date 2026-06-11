@@ -5,20 +5,16 @@ import subprocess
 from pathlib import Path
 
 from config import config
-
-USERS_DIR = Path("/etc/caddy/users")
-CADDY_CONFIG = "/etc/caddy/Caddyfile"
+from models import User
 
 
-def enrich_user(user: dict) -> dict:
-    login = user["login"]
-    password = user["password"]
+def enrich_user(user: User) -> dict:
 
     return {
-        **user,
-        "file": f"{login}.conf",
-        "link": (f"naive+https://{login}:{password}@{config.DOMAIN}:443"),
-        "desktop": (f"https://{login}:{password}@{config.DOMAIN}"),
+        **user.model_dump(),
+        "file": f"{user.login}.conf",
+        "link": (f"naive+https://{user.login}:{user.password}@{config.DOMAIN}:443"),
+        "desktop": (f"https://{user.login}:{user.password}@{config.DOMAIN}"),
     }
 
 
@@ -29,11 +25,11 @@ def gen_token(length: int) -> str:
 
 
 def user_file(login: str) -> Path:
-    return USERS_DIR / f"{login}.conf"
+    return config.USERS_DIR / f"{login}.conf"
 
 
 def add_user_to_file(login: str, password: str):
-    USERS_DIR.mkdir(
+    config.USERS_DIR.mkdir(
         parents=True,
         exist_ok=True,
     )
@@ -55,14 +51,14 @@ def remove_user_from_file(login: str):
 
 
 def parse_users():
-    USERS_DIR.mkdir(
+    config.USERS_DIR.mkdir(
         parents=True,
         exist_ok=True,
     )
 
     users = []
 
-    for file in USERS_DIR.glob("*.conf"):
+    for file in config.USERS_DIR.glob("*.conf"):
         try:
             text = file.read_text()
 
@@ -100,7 +96,7 @@ def validate_caddy() -> bool:
             "caddy",
             "validate",
             "--config",
-            CADDY_CONFIG,
+            config.CADDY_CONFIG,
         ],
         capture_output=True,
         text=True,
@@ -115,7 +111,7 @@ def reload_caddy() -> bool:
             "caddy",
             "reload",
             "--config",
-            CADDY_CONFIG,
+            config.CADDY_CONFIG,
         ],
         capture_output=True,
         text=True,
