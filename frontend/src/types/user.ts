@@ -3,5 +3,4 @@ export type User = {
   login: string;
   password?: string;
   link?: string;
-  desktop?: string;
 };

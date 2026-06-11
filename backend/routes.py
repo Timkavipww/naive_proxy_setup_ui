@@ -57,7 +57,6 @@ def create_user(
             "password": password,
             "file": f"{login}.conf",
             "link": (f"naive+https://{login}:{password}@{config.DOMAIN}:443"),
-            "desktop": (f"https://{login}:{password}@{config.DOMAIN}"),
         },
     }
 

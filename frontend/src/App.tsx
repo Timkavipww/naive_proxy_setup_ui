@@ -1,38 +1,11 @@
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import "./App.css";
 
-import { userService } from "./api/userService";
-import type { User } from "./types/user";
 import { useToast } from "./hooks/useToast";
+import { dict, type Lang } from "./types/constants.types";
 
-type Lang = "ru" | "eu";
-
-const dict = {
-  ru: {
-    login: "Войти",
-    create: "Создать",
-    delete: "Удалить",
-    copy: "Скопировать",
-    loading: "загрузка...",
-    userCreated: "Пользователь создан",
-    copied: "Скопировано",
-    cannotDelete: "Нельзя удалить последнего пользователя",
-    prefix: "Префикс",
-    lang: "RU",
-  },
-  eu: {
-    login: "Login",
-    create: "Create",
-    delete: "Delete",
-    copy: "Copy",
-    loading: "loading...",
-    userCreated: "User created",
-    copied: "Copied",
-    cannotDelete: "Cannot delete last user",
-    prefix: "Prefix",
-    lang: "EU",
-  },
-};
+import { useUsers } from "./hooks/useUsers";
+import { copyToClipboard, maskLink } from "./services/userSecurity";
 
 export default function App() {
   const [lang, setLang] = useState<Lang>(
@@ -49,30 +22,10 @@ export default function App() {
     });
   };
 
-  const [users, setUsers] = useState<User[]>([]);
   const [auth, setAuth] = useState(false);
-
   const [password, setPassword] = useState(
     () => localStorage.getItem("admin_password") || "",
   );
-
-  const [prefix, setPrefix] = useState("user");
-  const [loading, setLoading] = useState(false);
-  const [creating, setCreating] = useState(false);
-
-  const [visibleLinks, setVisibleLinks] = useState<Record<string, boolean>>({});
-
-  const { toasts, push } = useToast();
-
-  const loadUsers = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await userService.getUsers();
-      setUsers(data);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
   const login = () => {
     if (!password) return;
@@ -82,62 +35,23 @@ export default function App() {
     loadUsers();
   };
 
-  const createUser = async () => {
-    setCreating(true);
-    try {
-      await userService.createUser(prefix);
-
-      push(t.userCreated, "success");
-      await loadUsers();
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  const deleteUser = async (id: string) => {
-    if (users.length <= 1) {
-      push(t.cannotDelete, "error");
-      return;
-    }
-
-    await userService.deleteUser(id);
-
-    push(t.delete, "success");
-    await loadUsers();
-  };
-
-  const copy = (text?: string) => {
-    if (!text) return;
-    navigator.clipboard.writeText(text);
-    push(t.copied, "success");
-  };
+  const [prefix, setPrefix] = useState("user");
+  const [visibleLinks, setVisibleLinks] = useState<Record<string, boolean>>({});
 
   const toggleLink = (id: string) => {
-    setVisibleLinks((p) => ({ ...p, [id]: !p[id] }));
+    setVisibleLinks((p) => ({
+      ...p,
+      [id]: !p[id],
+    }));
   };
 
-  const maskLink = (link?: string) => {
-    if (!link) return "";
+  const { toasts, push } = useToast();
 
-    try {
-      const cleaned = link.replace("naive+", "");
+  const { users, loading, creating, loadUsers, createUser, deleteUser } =
+    useUsers(push, t);
 
-      const url = new URL(cleaned);
-
-      const auth = "***";
-
-      const hostParts = url.hostname.split(".");
-
-      let maskedHost = "***";
-
-      if (hostParts.length >= 2) {
-        maskedHost = `${hostParts[0]}.***`;
-      }
-
-      return `naive+https://${auth}@${maskedHost}${url.port ? `:${url.port}` : ""}`;
-    } catch {
-      return "hidden";
-    }
+  const copy = (text?: string) => {
+    copyToClipboard(text, push, t.copied);
   };
 
   if (!auth) {
@@ -159,9 +73,10 @@ export default function App() {
     );
   }
 
+  // ---------------- MAIN UI ----------------
   return (
     <div className="p-6">
-      {/* header + lang */}
+      {/* HEADER */}
       <div className="flex justify-between items-center mb-6">
         <div className="text-2xl font-bold">NAIVE PANEL</div>
 
@@ -170,38 +85,39 @@ export default function App() {
         </button>
       </div>
 
-      {/* toasts */}
+      {/* TOASTS */}
       <div className="fixed bottom-4 right-4 space-y-2">
-        {toasts.map((t) => (
-          <div key={t.id} className="panel text-sm">
-            {t.text}
+        {toasts.map((toast) => (
+          <div key={toast.id} className="panel text-sm">
+            {toast.text}
           </div>
         ))}
       </div>
 
-      {/* toolbar */}
+      {/* CREATE USER */}
       <div className="flex gap-2 mb-6">
         <input
           className="input flex-1"
           value={prefix}
           onChange={(e) => setPrefix(e.target.value)}
-          placeholder={t.prefix}
         />
 
-        <button className="btn primary" onClick={createUser}>
+        <button className="btn primary" onClick={() => createUser(prefix)}>
           {creating ? "..." : t.create}
         </button>
       </div>
 
-      {/* users */}
+      {/* USERS LIST */}
       <div className="space-y-3">
         {loading ? (
           <div>{t.loading}</div>
         ) : (
           users.map((u) => (
             <div key={u.id} className="panel flex justify-between">
+              {/* LOGIN */}
               <div>{u.login}</div>
 
+              {/* ACTIONS */}
               <div className="flex gap-2 items-center">
                 <div className="text-xs">
                   {visibleLinks[u.id] ? u.link : maskLink(u.link)}
